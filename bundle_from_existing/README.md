@@ -3,101 +3,98 @@
 Demo flow: **"I already have a job in the Workflows UI — how do I get it
 into a bundle?"**
 
-Almost every customer has this. They've been clicking through the Jobs UI
-for months and want to move to infrastructure-as-code without rewriting
-everything. The Databricks CLI ships a `bundle generate` command for
-exactly this case.
+Almost every customer has this. They opened a notebook in the workspace,
+attached some pip dependencies, and clicked **Schedule** to make a job
+out of it. Now they want to move to infrastructure-as-code without
+rewriting anything. The Databricks CLI ships a `bundle generate` command
+for exactly this case.
 
-## Setup (one-time, already done)
+## The pre-existing job (already set up in dev)
 
-A pre-existing job called **`existing_customer_report_job`** lives in the
-dev workspace (`fe-sandbox-zg-aws-sandbox`). It's deliberately
-customer-realistic:
+A job called **`existing_job_customer_report_notebook`** lives in the dev
+workspace (`fe-sandbox-zg-aws-sandbox`). It's deliberately
+customer-realistic — every piece matches what someone would actually have
+in production:
 
-- A **notebook task** (not a `.py` file in a repo — a real notebook the
-  customer created in the workspace UI months ago)
-- **Widgets** for `catalog` and `schema` — the typical pattern for a
-  notebook shared across environments
-- Two **PyPI dependencies** in the job's serverless environment:
-  - `faker` — generates sample customer rows
-  - `humanize` — formats the report output
-- A **paused weekly schedule** (Monday 7am) — common production pattern
-- **Notebook lives** at
-  `/Users/zach.goehring@databricks.com/dabs_demo_existing/customer_report`
-  in the workspace (imported directly, not bundle-managed — that's the
-  whole point)
+- A real **`.ipynb` notebook** created in the workspace UI:
+  `/Users/zach.goehring@databricks.com/dabs_demo/bundle_from_existing/source/customer_report_notebook`
+- **Notebook widgets** for `catalog` and `schema` (the typical pattern for
+  a shared notebook running across environments)
+- **Two PyPI dependencies** — `faker` and `humanize` — attached via the
+  notebook's **Environment side panel** (not `%pip install`, not job-level
+  `environments[]`). The deps live in the notebook's metadata.
+- A job created from that notebook with **no job-level `environment_key`**,
+  so the runtime auto-uses the notebook's environment
 
-**Job ID: `898648320693456`**
+**Job ID: `954844862799777`**
 
-Verify any time:
-
-```bash
-databricks jobs list --profile dabs-demo-dev | grep existing_customer_report_job
-```
+Why this shape matters: when `bundle generate job` runs against this job,
+the downloaded notebook is `.ipynb` and its environment metadata travels
+with it. The generated `job.yml` has *no* `environments[]` block —
+because the job itself doesn't need one. Deps follow the notebook.
 
 ## The demo flow
 
 ### 1. Show the job in the UI
 
-Workspace → Workflows → click `existing_customer_report_job`. Walk through it:
-- one task, runs the `customer_report` notebook
-- widgets / base_parameters: `catalog`, `schema`
-- a paused weekly schedule
-- the `Environment` block: `faker`, `humanize`
-- run history (one successful run already there)
+Workspace → Workflows → `existing_job_customer_report_notebook`. Walk through:
+- one task, runs the `customer_report_notebook` notebook
+- base_parameters: `catalog`, `schema`
+- run history (one successful run)
 
 This is the "before" state — config exists, but only as clicks in the UI.
 
 ### 2. Open the notebook itself
 
-Click the notebook from the task. Show the customer what they wrote:
-- widget definitions at the top
-- `from faker import Faker` and `import humanize` — both PyPI deps
-- a few cells of generate → aggregate → print
+Click into the notebook. Show the **Environment** side panel on the right
+— `faker` and `humanize` listed there with no `%pip install` in any cell.
+Walk through the cells to show widgets at the top, then `import` lines
+that depend on the side-panel deps.
 
-This is the kind of notebook every customer has. The deps + widgets are
-the "are they covered?" question they care about.
+This is the part customers always ask about: *"if I bundle this, do my
+deps come along?"* — and yes, because they're in the notebook's metadata,
+not free-floating.
 
 ### 3. Generate bundle YAML from the job
 
-In an empty directory (so the generated files don't collide with anything):
+In an empty directory:
 
 ```bash
 mkdir /tmp/generated && cd /tmp/generated
-databricks bundle generate job --existing-job-id 898648320693456 --profile dabs-demo-dev
+databricks bundle generate job --existing-job-id 954844862799777 --profile dabs-demo-dev
 ```
 
 This produces:
 
 - `databricks.yml` — minimal bundle config
 - `resources/<job-name>.job.yml` — the job spec extracted from the live job
-- the notebook file(s) the job references, downloaded into `src/`
+- the notebook the job references, downloaded as `.ipynb` into `src/`
+  (with its Environment side-panel metadata intact)
 
 ### 4. Walk through what got captured
 
-Open `resources/*.job.yml` next to the workspace UI side-by-side:
+Open the generated files side-by-side with the workspace UI:
 
-- task definition with notebook path → captured
-- base_parameters (widgets) → captured
-- `environments` block with both deps → **captured cleanly**
-- schedule + pause status → captured
-- email notifications → captured
-- the notebook source itself → downloaded to `src/`
+- Task definition with notebook path → captured
+- `base_parameters` (widget defaults from the job) → captured
+- **No `environments[]` block** in the generated YAML → because the job
+  didn't have one. The deps live in the `.ipynb` instead.
+- The downloaded `.ipynb` opens fine in any Jupyter viewer and carries
+  the environment metadata Databricks reads at runtime.
 
-This is the "aha" moment — the customer can see that *everything* they
-configured in the UI, including PyPI deps for notebook tasks, came along
-into YAML. No re-work.
+This is the "aha" — *deps follow the notebook*. Customers worry that
+moving to bundles means re-declaring every dependency in YAML. It
+doesn't.
 
 ### 5. Refine the generated bundle
 
-Generated YAML is a starting point, not the final form. Typical cleanup:
+Generated YAML is a starting point. Typical cleanup before merging:
 
-- Replace hardcoded user email in `run_as` / `notebook_path` with
-  `${workspace.current_user.userName}` (or a workspace files path)
-- Add a `${var.catalog}` variable instead of the hardcoded catalog in
+- Replace the hardcoded user email in paths with workspace-relative refs
+- Add `${var.catalog}` instead of the hardcoded `catalog` value in
   `base_parameters`
-- Add `targets:` blocks for dev/staging/prod instead of the single workspace
-- Add `mode: development` to dev to get auto-pause + per-user prefixes
+- Add `targets:` blocks for dev/staging/prod
+- Add `mode: development` to dev for auto-pause + per-user prefixes
 
 ### 6. Deploy from the bundle
 
@@ -107,52 +104,52 @@ databricks bundle deploy
 ```
 
 Open the workspace UI. You'll now see the original job
-(`existing_customer_report_job`) **plus** a bundle-deployed copy. Once the
-customer is happy that the bundle reproduces the original, they can
-delete the original via the UI — the bundle copy takes over.
+(`existing_job_customer_report_notebook`) **plus** a bundle-deployed copy.
+Once the customer is happy the bundle reproduces the original, they can
+delete the original in the UI — the bundle copy takes over.
 
-## Files in this folder
+## What's intentionally NOT in this folder
 
-| Path | Purpose |
-|---|---|
-| `source/customer_report.py` | The notebook source the customer wrote. Imported into the workspace when the job was created. Local copy lives here for git history; the workspace copy is what the job runs. |
-| (no `databricks.yml`) | Intentional — this folder is the *starting point*. The bundle gets generated during the demo. |
+There's no `databricks.yml` here. There's no local notebook file. That's
+on purpose:
 
-## What `bundle generate` covers (and doesn't)
+- The customer's starting point is **a notebook in the workspace, owned
+  by them, that they've been editing for months**. The repo doesn't
+  pre-stage a copy.
+- `bundle generate` is what produces the local files for the first time,
+  during the demo.
 
-**Generates cleanly:**
-- jobs, pipelines, dashboards, ML experiments
-- notebook source files referenced by the resource (downloaded automatically)
-- task config: parameters/widgets, schedules, notifications, retries
-- **serverless `environments[]` with PyPI deps** ← the notebook-task dep story
-- email + webhook notifications
+If you want to look at the notebook's source before running the demo,
+open it in the workspace at the path above, or just `bundle generate`
+once and open the downloaded `.ipynb`.
 
-**Doesn't cover (you add manually):**
-- variables — generated YAML has hardcoded values where vars should be
-- multi-target configs — generated for one workspace; you split it
-- permissions blocks
-- artifact builds (wheels)
-- secrets refs (you'll see literal references; rewrite to `${secrets/...}`)
+## Where notebook-task dependencies can live
 
-The mental model: `bundle generate` gets you from "clicked-together job"
-to "deployable single-target bundle" in one command. Going from there to
-"production-grade bundle with dev/staging/prod, variables, CI/CD" is
-manual but mostly mechanical.
+There are four real options. Only one of them is what this demo uses:
 
-## A note on notebook-task deps specifically
+| # | Mechanism | Persists in | Captured by `bundle generate` |
+|---|---|---|---|
+| 1 | Job's `environments[].spec.dependencies` (via `environment_key`) | `databricks.yml` / `*.job.yml` | ✅ yes |
+| 2 | **Notebook's own Environment side panel** ← **what this demo uses** | `.ipynb` metadata | ✅ yes (notebook file carries the metadata) |
+| 3 | `%pip install` inside the notebook | notebook source content | ⚠️ source travels but the install is brittle |
+| 4 | Cluster libraries (classic compute only) | `job_clusters[].new_cluster.libraries` | ✅ yes |
 
-For *notebook tasks* (not python_wheel_task / python_task), Databricks
-has three places dependencies can come from:
+Most customers start with option 2 — they configure the Environment panel
+once and click Schedule. That's the path this demo replicates. Once
+they're comfortable with bundles, some teams shift toward option 1
+(job-level env) because it keeps all the config in YAML — same place as
+the rest of the bundle. Both are equally valid; neither requires
+rewriting the notebook.
 
-1. **`environments[].spec.dependencies`** in the job spec (what we use here).
-   Captured by `bundle generate`. Recommended.
-2. **`%pip install` magic commands inside the notebook itself.** *Not*
-   captured by `bundle generate` — it grabs the notebook contents but
-   doesn't reason about them. If a generated bundle deploys but tasks
-   fail with `ModuleNotFoundError`, look here first.
-3. **Cluster libraries** (only on classic compute, not serverless).
-   Captured if the job uses a `job_cluster_key` with libraries declared.
+## The mental model
 
-Moral: if you're going to bundle-ize an existing notebook task, get the
-deps into the job's `environments[]` block first. `%pip install` works
-when clicking around, but doesn't survive the bundle round-trip.
+`bundle generate` gets you from "clicked-together job + notebook in
+workspace" to "deployable single-target bundle" in one command. Going
+from there to "production-grade bundle with dev/staging/prod, variables,
+CI/CD" is manual but mechanical.
+
+The deps story specifically: if the customer used the Environment panel
+(option 2), nothing changes — the deps stay with the notebook. If they
+used `%pip install` (option 3), they should move those into the
+Environment panel *before* bundle-generating, otherwise the generated
+bundle deploys but tasks fail with `ModuleNotFoundError`.

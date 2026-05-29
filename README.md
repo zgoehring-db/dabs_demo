@@ -222,24 +222,28 @@ Most customers already have jobs in the Workflows UI and want to know how
 to bring them into a bundle without rewriting. `bundle_from_existing/`
 walks through it.
 
-A pre-existing job (`existing_say_hello_job`, job ID `898648320693456`) is
-already sitting in the dev workspace. The demo:
+A pre-existing job (`existing_job_customer_report_notebook`, job ID
+`954844862799777`) is already in the dev workspace. It runs an `.ipynb`
+notebook with two PyPI dependencies (`faker`, `humanize`) attached via
+the notebook's Environment side panel — the most common customer setup.
+The demo:
 
 ```bash
-# 1. Show the customer the job in Workflows UI
+# 1. Show the customer the job in Workflows UI, then click into the
+#    notebook to show the Environment side panel with the deps
 # 2. In an empty directory, generate the bundle YAML from the live job:
 mkdir /tmp/generated && cd /tmp/generated
-databricks bundle generate job --existing-job-id 898648320693456 --profile dabs-demo-dev
+databricks bundle generate job --existing-job-id 954844862799777 --profile dabs-demo-dev
 
 # 3. Walk through the produced databricks.yml + resources/*.job.yml
+#    Note: NO environments[] block in the generated YAML — the deps live
+#    in the downloaded .ipynb's metadata, not in the bundle.
 # 4. Deploy as a bundle:
 databricks bundle deploy
-
-# The same notebook + parameters + schedule now live in YAML.
 ```
 
-See `bundle_from_existing/README.md` for the full flow including what to
-clean up manually after generation.
+See `bundle_from_existing/README.md` for the full flow + the four places
+notebook deps can live and which survive bundle generation.
 
 ---
 
