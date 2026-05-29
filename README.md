@@ -231,15 +231,32 @@ The demo:
 ```bash
 # 1. Show the customer the job in Workflows UI, then click into the
 #    notebook to show the Environment side panel with the deps
-# 2. In an empty directory, generate the bundle YAML from the live job:
-mkdir /tmp/generated && cd /tmp/generated
-databricks bundle generate job --existing-job-id 954844862799777 --profile dabs-demo-dev
+# 2. Set up an empty bundle directory with a minimal databricks.yml
+#    (bundle generate needs one to write into):
+mkdir ~/dabs_generated && cd ~/dabs_generated
+cat > databricks.yml <<'EOF'
+bundle:
+  name: generated_customer_report
 
-# 3. Walk through the produced databricks.yml + resources/*.job.yml
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://fe-sandbox-zg-aws-sandbox.cloud.databricks.com
+EOF
+
+# 3. Generate the job resource from the live job. --key names it.
+databricks bundle generate job \
+  --existing-job-id 954844862799777 \
+  --key customer_report \
+  --profile dabs-demo-dev
+
+# 4. Walk through the produced resources/*.job.yml
 #    Note: NO environments[] block in the generated YAML — the deps live
 #    in the downloaded .ipynb's metadata, not in the bundle.
-# 4. Deploy as a bundle:
-databricks bundle deploy
+# 5. Deploy as a bundle:
+databricks bundle deploy --profile dabs-demo-dev
 ```
 
 See `bundle_from_existing/README.md` for the full flow + the four places

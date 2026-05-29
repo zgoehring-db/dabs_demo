@@ -57,19 +57,50 @@ not free-floating.
 
 ### 3. Generate bundle YAML from the job
 
-In an empty directory:
+`bundle generate` needs a `databricks.yml` to drop its output into — it
+won't scaffold one for you. So in an empty directory:
 
 ```bash
-mkdir /tmp/generated && cd /tmp/generated
-databricks bundle generate job --existing-job-id 954844862799777 --profile dabs-demo-dev
+mkdir ~/dabs_generated && cd ~/dabs_generated
+
+# Create a minimal databricks.yml first
+cat > databricks.yml <<'EOF'
+bundle:
+  name: generated_customer_report
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://fe-sandbox-zg-aws-sandbox.cloud.databricks.com
+EOF
+
+# Now generate the job resource. --key sets the bundle resource name
+# you'll use later with `bundle run <key>`.
+databricks bundle generate job \
+  --existing-job-id 954844862799777 \
+  --key customer_report \
+  --profile dabs-demo-dev
 ```
 
-This produces:
+This produces (alongside the `databricks.yml` you just wrote):
 
-- `databricks.yml` — minimal bundle config
-- `resources/<job-name>.job.yml` — the job spec extracted from the live job
+- `resources/customer_report.yml` — the job spec extracted from the live job
 - the notebook the job references, downloaded as `.ipynb` into `src/`
   (with its Environment side-panel metadata intact)
+
+The CLI creates `resources/` and `src/` automatically if they don't exist.
+
+### A note on `--bind`
+
+`bundle generate job` also supports a `--bind` flag. Without it (what we
+just ran), the next `bundle deploy` creates a **new** job in the workspace
+alongside the original — useful for a "see, the bundle reproduces it"
+demo. With `--bind`, deploy takes over the original job ID instead, so
+you migrate it in place. For a first-time demo I'd skip `--bind` and add
+it as a follow-up step: "and when you're ready to adopt this as the real
+job, re-generate with `--bind`."
 
 ### 4. Walk through what got captured
 
@@ -96,17 +127,44 @@ Generated YAML is a starting point. Typical cleanup before merging:
 - Add `targets:` blocks for dev/staging/prod
 - Add `mode: development` to dev for auto-pause + per-user prefixes
 
-### 6. Deploy from the bundle
+### 6. Validate, deploy, and run from the bundle
+
+Stay in the same directory where you ran `bundle generate` (it has the
+`databricks.yml`, `resources/`, `src/`). All commands below use
+`--profile dabs-demo-dev` because that's the profile that authenticates
+to the fe-sandbox workspace where the original job lives.
 
 ```bash
-databricks bundle validate
-databricks bundle deploy
+# 6a. Validate: parses YAML, resolves references, no changes to workspace
+databricks bundle validate --profile dabs-demo-dev
+
+# 6b. Deploy: uploads the .ipynb + creates a new job in the workspace
+databricks bundle deploy --profile dabs-demo-dev
+
+# 6c. Run: triggers the bundle's job and tails logs.
+#         "customer_report" is the --key you passed to bundle generate.
+databricks bundle run customer_report --profile dabs-demo-dev
 ```
 
-Open the workspace UI. You'll now see the original job
-(`existing_job_customer_report_notebook`) **plus** a bundle-deployed copy.
-Once the customer is happy the bundle reproduces the original, they can
-delete the original in the UI — the bundle copy takes over.
+Open the workspace UI between steps:
+
+- After **deploy** → Workflows shows the original job AND a new
+  `[dev zach_goehring] existing_job_customer_report_notebook`. Bundle
+  created a parallel copy (no `--bind` was used).
+- After **run** → click the new job's run history to confirm it executed
+  with the notebook's `faker` + `humanize` deps installed automatically.
+
+### 7. Clean up
+
+When done with the demo:
+
+```bash
+databricks bundle destroy --profile dabs-demo-dev
+```
+
+Removes the bundle-deployed copy. The original
+`existing_job_customer_report_notebook` is untouched (we didn't use
+`--bind`).
 
 ## What's intentionally NOT in this folder
 
