@@ -1,0 +1,38 @@
+# Databricks Asset Bundle: app_example
+#
+# Deploys a minimal Streamlit "hello world" Databricks App.
+#
+# Three files make the app work:
+#   - app/app.py          → the Streamlit code
+#   - app/app.yaml        → tells Databricks how to launch the app
+#   - app/requirements.txt → pip dependencies (streamlit)
+#
+# The bundle resource below just tells Databricks where the source code
+# lives and what to call the app in the workspace.
+
+bundle:
+  name: dabs_demo_app
+
+resources:
+  apps:
+    hello_app:
+      name: "${bundle.target}-dabs-demo-hello-app"
+      source_code_path: ./app
+      description: "Minimal Streamlit hello-world app for the DABs demo."
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://fe-sandbox-zg-aws-sandbox.cloud.databricks.com
+      profile: dabs-demo-dev
+
+  prod:
+    mode: production
+    workspace:
+      host: https://e2-demo-field-eng.cloud.databricks.com
+      profile: e2
+      root_path: /Workspace/Users/zach.goehring@databricks.com/.bundle/${bundle.name}/prod
+    run_as:
+      user_name: zach.goehring@databricks.com

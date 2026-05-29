@@ -1,0 +1,76 @@
+# Job definition for the dabs_demo_job bundle.
+#
+# Two-task serverless job that:
+#   1. generate_customers — uses `faker` (PyPI dep) to produce synthetic
+#      customer rows and write them to UC.
+#   2. summarize         — reads the table just written, computes a summary
+#      row (timestamp + counts + averages), appends to a `run_log` table.
+#
+# Each run appends one row to `run_log` so it's easy to see by eye that
+# the job actually fired (just `SELECT * FROM run_log ORDER BY run_at DESC`).
+#
+# The PyPI dependency is declared in `environments[].spec.dependencies`.
+# Both tasks share `serverless_env` so the dependency install happens once.
+
+resources:
+  jobs:
+    generate_customers:
+      # In dev mode the bundle auto-prefixes resource names with "[dev <user>]";
+      # prod mode leaves names as-written. So we don't need a manual target prefix.
+      name: generate_customers
+
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+
+      # Hourly schedule, PAUSED by default. In dev mode the bundle force-pauses
+      # all schedules regardless of this value; in prod mode this value is
+      # respected as-written. Flip to UNPAUSED for prod when you're ready.
+      schedule:
+        quartz_cron_expression: "0 0 * * * ?"   # top of every hour
+        timezone_id: "America/Chicago"
+        pause_status: PAUSED
+
+      # Job tags — separate from any tags inherited via budget policy.
+      # These show up in billing reports and in the Workflows UI.
+      tags:
+        team: field-eng
+        purpose: dabs-demo
+        owner: zach.goehring
+
+      tasks:
+        - task_key: generate
+          notebook_task:
+            notebook_path: ../src/generate_customers.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              row_count: ${var.row_count}
+          environment_key: serverless_env
+
+        - task_key: summarize
+          depends_on:
+            - task_key: generate
+          notebook_task:
+            notebook_path: ../src/summarize.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              source_table: synthetic_customers
+              log_table: run_log
+              bundle_target: ${bundle.target}
+          environment_key: serverless_env
+
+      # Serverless environment spec.
+      #   - environment_version: the serverless runtime track. "2" is current
+      #     as of 2026; check Databricks docs for the latest before bumping.
+      #   - dependencies: pip-style requirement strings. Bundle uploads any
+      #     local paths at deploy time. Quote any version specifier that has
+      #     a glob character (e.g. "foo==1.*") so DABs doesn't treat it as
+      #     a file path.
+      environments:
+        - environment_key: serverless_env
+          spec:
+            environment_version: "2"
+            dependencies:
+              - "faker>=30,<31"

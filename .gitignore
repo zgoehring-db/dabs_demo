@@ -1,0 +1,21 @@
+# Bundle deploy state (local, per-machine)
+.databricks/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Secrets
+.env
+.env.*

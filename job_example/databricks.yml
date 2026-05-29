@@ -1,0 +1,76 @@
+# Databricks Asset Bundle: job_example
+#
+# A minimal "hello DABs" bundle that:
+#   - Defines a serverless job with one task
+#   - Demonstrates a bundle variable (`catalog`) the customer can override
+#     per target or at the CLI with `--var catalog=...`
+#   - Declares a PyPI Python dependency (`faker`) in the task's
+#     serverless environment, so we show how dependency management works
+#     without classic clusters or init scripts.
+#
+# Two targets:
+#   - dev:  fe-sandbox workspace (development mode, per-user prefix)
+#   - prod: e2-demo-field-eng workspace (production mode)
+
+bundle:
+  name: dabs_demo_job
+
+include:
+  - resources/*.yml
+
+# ----------------------------------------------------------------------------
+# Variables — what the customer can override per target or at the CLI.
+# ----------------------------------------------------------------------------
+variables:
+  catalog:
+    description: |
+      Unity Catalog the job writes into. Override per target below, or at the
+      CLI: `databricks bundle deploy --var catalog=my_catalog`.
+    default: zg_aws_sandbox_catalog
+
+  schema:
+    description: Schema inside the catalog. The job will create it if missing.
+    default: dabs_demo
+
+  row_count:
+    description: How many synthetic rows the job generates.
+    default: "1000"
+
+# ----------------------------------------------------------------------------
+# Targets — one workspace per environment.
+# ----------------------------------------------------------------------------
+targets:
+  # ---- dev -----------------------------------------------------------------
+  # Development mode: per-user resource prefix, schedules paused, root path
+  # under the deploying user's home directory.
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://fe-sandbox-zg-aws-sandbox.cloud.databricks.com
+      profile: dabs-demo-dev
+    variables:
+      catalog: zg_aws_sandbox_catalog   # the fe-sandbox workspace's managed UC catalog
+
+  # ---- prod ----------------------------------------------------------------
+  # Production mode: no username prefix, run_as must be set (here we use the
+  # deploying user; in a real prod setup you'd use a service principal).
+  prod:
+    mode: production
+    workspace:
+      host: https://e2-demo-field-eng.cloud.databricks.com
+      profile: e2
+      root_path: /Workspace/Users/zach.goehring@databricks.com/.bundle/${bundle.name}/prod
+    variables:
+      catalog: zg_catalog          # change to your prod catalog
+    run_as:
+      user_name: zach.goehring@databricks.com
+
+    # Prod-only override: attach a serverless budget policy so compute spend
+    # rolls up under the policy and inherits its tags. Dev intentionally
+    # doesn't get one (we hit the policy quota), so this lives under the
+    # prod target rather than as a top-level bundle variable.
+    resources:
+      jobs:
+        generate_customers:
+          budget_policy_id: 1f0e93d0-98c1-4c06-9f89-52083cb4ddcd
