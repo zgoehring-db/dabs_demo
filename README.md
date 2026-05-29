@@ -238,6 +238,9 @@ cat > databricks.yml <<'EOF'
 bundle:
   name: generated_customer_report
 
+include:
+  - resources/*.yml      # required — DABs won't auto-include the generated file
+
 targets:
   dev:
     mode: development

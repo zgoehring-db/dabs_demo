@@ -63,10 +63,16 @@ won't scaffold one for you. So in an empty directory:
 ```bash
 mkdir ~/dabs_generated && cd ~/dabs_generated
 
-# Create a minimal databricks.yml first
+# Create a minimal databricks.yml first. Note the `include:` line —
+# DABs does NOT auto-include resources/*.yml, you have to declare it.
+# Without it, bundle generate writes the file but bundle deploy/run can't
+# find it.
 cat > databricks.yml <<'EOF'
 bundle:
   name: generated_customer_report
+
+include:
+  - resources/*.yml
 
 targets:
   dev:
