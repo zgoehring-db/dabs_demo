@@ -29,18 +29,18 @@ dabs_demo/
 | Target | Workspace | CLI profile |
 |---|---|---|
 | `dev` | `https://fe-sandbox-zg-aws-sandbox.cloud.databricks.com` | `dabs-demo-dev` |
-| `prod` | `https://e2-demo-field-eng.cloud.databricks.com` | `e2` |
+| `prod` | `https://fevm-dabs-prod.cloud.databricks.com` | `dabs-demo-prod` |
 
 Both bundles point at the same workspaces via target-specific config blocks.
 Switch which one you deploy to with `--target dev` or `--target prod`.
 
 ## Prerequisites
 
-- Databricks CLI v0.230+: `databricks --version`
+- Databricks CLI v1.0+: `databricks --version`
 - Auth set up for both workspaces:
   ```bash
   databricks auth login --host https://fe-sandbox-zg-aws-sandbox.cloud.databricks.com --profile dabs-demo-dev
-  databricks auth login --host https://e2-demo-field-eng.cloud.databricks.com --profile e2
+  databricks auth login --host https://fevm-dabs-prod.cloud.databricks.com --profile dabs-demo-prod
   ```
 
 ---

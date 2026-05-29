@@ -58,19 +58,22 @@ targets:
   prod:
     mode: production
     workspace:
-      host: https://e2-demo-field-eng.cloud.databricks.com
-      profile: e2
-      root_path: /Workspace/Users/zach.goehring@databricks.com/.bundle/${bundle.name}/prod
+      host: https://fevm-dabs-prod.cloud.databricks.com
+      profile: dabs-demo-prod
+      # Explicit root_path is recommended for production mode — keeps the
+      # deploy idempotent and tied to a specific identity.
+      root_path: /Workspace/Users/zach.goehring@databricks.com/.bundle/${bundle.name}/${bundle.target}
     variables:
-      catalog: zg_catalog          # change to your prod catalog
+      catalog: dabs_prod_catalog        # the fe-vm prod workspace's managed UC catalog
     run_as:
       user_name: zach.goehring@databricks.com
 
-    # Prod-only override: attach a serverless budget policy so compute spend
-    # rolls up under the policy and inherits its tags. Dev intentionally
-    # doesn't get one (we hit the policy quota), so this lives under the
-    # prod target rather than as a top-level bundle variable.
-    resources:
-      jobs:
-        generate_customers:
-          budget_policy_id: 1f0e93d0-98c1-4c06-9f89-52083cb4ddcd
+    # Customer-shaped extension point: in a real prod target, this is where
+    # you'd attach a serverless budget policy so compute spend rolls up
+    # under the policy and inherits its tags. Omitted here because the
+    # fe-vm workspace's account doesn't have a policy we can reference.
+    #
+    # resources:
+    #   jobs:
+    #     generate_customers:
+    #       budget_policy_id: <your-policy-uuid>
