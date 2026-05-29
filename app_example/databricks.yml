@@ -18,7 +18,18 @@ resources:
     hello_app:
       name: "${bundle.target}-dabs-demo-hello-app"
       source_code_path: ./app
-      description: "Minimal Streamlit hello-world app for the DABs demo."
+      description: "Streamlit chat app calling a Databricks Foundation Model endpoint."
+
+      # Resource bindings. Each entry grants the app's auto-provisioned
+      # service principal a specific permission on a real workspace
+      # resource. At runtime, the binding shows up as injected env vars
+      # the SDK uses automatically.
+      resources:
+        - name: chat_model
+          description: "Foundation Model endpoint the chat UI calls."
+          serving_endpoint:
+            name: databricks-meta-llama-3-3-70b-instruct
+            permission: CAN_QUERY
 
 targets:
   dev:
