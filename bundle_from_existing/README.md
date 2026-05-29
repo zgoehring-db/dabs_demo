@@ -61,7 +61,7 @@ not free-floating.
 won't scaffold one for you. So in an empty directory:
 
 ```bash
-mkdir ~/dabs_generated && cd ~/dabs_generated
+mkdir ~/dabs_live_demo && cd ~/dabs_live_demo
 
 # Create a minimal databricks.yml first. Note the `include:` line —
 # DABs does NOT auto-include resources/*.yml, you have to declare it.

@@ -233,7 +233,7 @@ The demo:
 #    notebook to show the Environment side panel with the deps
 # 2. Set up an empty bundle directory with a minimal databricks.yml
 #    (bundle generate needs one to write into):
-mkdir ~/dabs_generated && cd ~/dabs_generated
+mkdir ~/dabs_live_demo && cd ~/dabs_live_demo
 cat > databricks.yml <<'EOF'
 bundle:
   name: generated_customer_report
