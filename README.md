@@ -255,8 +255,14 @@ databricks bundle generate job \
 # 4. Walk through the produced resources/*.job.yml
 #    Note: NO environments[] block in the generated YAML — the deps live
 #    in the downloaded .ipynb's metadata, not in the bundle.
-# 5. Deploy as a bundle:
-databricks bundle deploy --profile dabs-demo-dev
+
+# 5. Validate, deploy, run from the bundle (all from the same directory):
+databricks bundle validate --profile dabs-demo-dev
+databricks bundle deploy   --profile dabs-demo-dev
+databricks bundle run customer_report --profile dabs-demo-dev
+
+# 6. Clean up the bundle-deployed copy (original job is untouched):
+databricks bundle destroy --profile dabs-demo-dev
 ```
 
 See `bundle_from_existing/README.md` for the full flow + the four places
