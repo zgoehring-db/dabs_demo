@@ -58,7 +58,6 @@ resources:
               schema: ${var.schema}
               source_table: synthetic_customers
               log_table: run_log
-              bundle_target: ${bundle.target}
           environment_key: serverless_env
 
       # Serverless environment spec.

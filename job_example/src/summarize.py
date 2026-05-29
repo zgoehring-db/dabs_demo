@@ -16,13 +16,11 @@ dbutils.widgets.text("catalog", "")
 dbutils.widgets.text("schema", "dabs_demo")
 dbutils.widgets.text("source_table", "synthetic_customers")
 dbutils.widgets.text("log_table", "run_log")
-dbutils.widgets.text("bundle_target", "")
 
 catalog = dbutils.widgets.get("catalog")
 schema = dbutils.widgets.get("schema")
 source_table = dbutils.widgets.get("source_table")
 log_table = dbutils.widgets.get("log_table")
-bundle_target = dbutils.widgets.get("bundle_target")
 
 assert catalog, "catalog parameter is required"
 
@@ -35,7 +33,6 @@ log = f"{catalog}.{schema}.{log_table}"
 spark.sql(f"""
     CREATE TABLE IF NOT EXISTS {log} (
         run_at TIMESTAMP,
-        bundle_target STRING,
         source_table STRING,
         row_count BIGINT,
         unique_countries BIGINT,
@@ -51,7 +48,6 @@ summary = (
     spark.table(source)
     .agg(
         F.current_timestamp().alias("run_at"),
-        F.lit(bundle_target).alias("bundle_target"),
         F.lit(source).alias("source_table"),
         F.count("*").alias("row_count"),
         F.countDistinct("country").alias("unique_countries"),
